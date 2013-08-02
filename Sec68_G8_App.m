@@ -30,7 +30,7 @@ function varargout = Sec68_G8_App(varargin)
 
 % Edit the above text to modify the response to help Sec68_G8_App
 
-% Last Modified by GUIDE v2.5 25-Jul-2013 14:40:09
+% Last Modified by GUIDE v2.5 02-Aug-2013 16:25:54
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -161,7 +161,17 @@ handles.gydata = zeros(handles.buf_len,1);
 handles.gzdata = zeros(handles.buf_len,1);
 handles.magnitudedata = zeros(handles.buf_len,1);
 handles.index = 1:handles.buf_len;
-
+% Initialize variables to store the rolling filtered data
+    handles.gxMov = 0;
+    handles.gyMov = 0;
+    handles.gzMov = 0;
+%Create Buffer Variables for all the three axis and the resultant vector
+%of the Moving Average Filter
+handles.gxMovData = zeros(handles.buf_len,1);
+handles.gyMovData = zeros(handles.buf_len,1);
+handles.gzMovData = zeros(handles.buf_len,1);
+handles.magnitudeMovData = zeros(handles.buf_len,1);
+handles.indexMov = 1:handles.buf_len;
 % Initialize variables to store the rolling filtered data
     handles.gxFilt = 0;
     handles.gyFilt = 0;
@@ -180,46 +190,38 @@ handles.indexFilt = 1:handles.buf_len;
 
 while strcmp(get(handles.plot1button,'String'),'Stop')
     
-    % Obtain Alpha value from slider
-    
-    handles.alpha = get(handles.sliderControlAlpha,'value');
-    % Set the Text box to the alpha value
-    set(handles.sliderTextAlpha,'String',num2str(handles.alpha));
     
     
-    
-    
-    
-    %read accelerometer output
-    [handles.gx handles.gy handles.gz] = readAcc(handles.accelerometer, handles.calCo);
-    
-    axes(handles.axes1)
-    %plot X, Y, Z and resultant acceleration vectors and resultant
-    %acceleration vector
-    cla;
-    % X Vector
-    line([0 handles.gx], [0 0], [0 0], 'Color', 'r', 'LineWidth', 2, 'Marker', 'o');
-    % Y Vector
-    line([0 0], [0 handles.gy], [0 0], 'Color', 'b', 'LineWidth', 2, 'Marker', 'o');
-    % Z Vector
-    line([0 0], [0 0], [0 handles.gz], 'Color', 'g', 'LineWidth', 2, 'Marker', 'o');
-    % Resultant Vector
-    line([0 handles.gx], [0 handles.gy], [0 handles.gz], 'Color', 'k', 'LineWidth', 2, 'Marker', 'o');
-    grid on
-    
-    %limit plot to +/- 2.5 g in all directions and make axis square
-    limits = 2.5;
-    axis([-limits limits -limits limits -limits limits]);
-    axis square;
-    %calculate the angle of the resultant acceleration vector and print
-    handles.theta = atand(handles.gy/handles.gx);
-    title(['Accelerometer tilt angle: ' num2str(handles.theta, '%.0f')]);
-    
-    %Keep updating the string value of plot1button with every iteration to
-    %encounter possible 'Plot1' String that will stop the function
-    %handles.str = get(handles.plot1button, 'String');
-    %Force MATLAB to redraw the figure
-    drawnow;
+%     %read accelerometer output
+%     [handles.gx handles.gy handles.gz] = readAcc(handles.accelerometer, handles.calCo);
+%     
+%     axes(handles.axes1)
+%     %plot X, Y, Z and resultant acceleration vectors and resultant
+%     %acceleration vector
+%     cla;
+%     % X Vector
+%     line([0 handles.gx], [0 0], [0 0], 'Color', 'r', 'LineWidth', 2, 'Marker', 'o');
+%     % Y Vector
+%     line([0 0], [0 handles.gy], [0 0], 'Color', 'b', 'LineWidth', 2, 'Marker', 'o');
+%     % Z Vector
+%     line([0 0], [0 0], [0 handles.gz], 'Color', 'g', 'LineWidth', 2, 'Marker', 'o');
+%     % Resultant Vector
+%     line([0 handles.gx], [0 handles.gy], [0 handles.gz], 'Color', 'k', 'LineWidth', 2, 'Marker', 'o');
+%     grid on
+%     
+%     %limit plot to +/- 2.5 g in all directions and make axis square
+%     limits = 2.5;
+%     axis([-limits limits -limits limits -limits limits]);
+%     axis square;
+%     %calculate the angle of the resultant acceleration vector and print
+%     handles.theta = atand(handles.gy/handles.gx);
+%     title(['Accelerometer tilt angle: ' num2str(handles.theta, '%.0f')]);
+%     
+%     %Keep updating the string value of plot1button with every iteration to
+%     %encounter possible 'Plot1' String that will stop the function
+%     %handles.str = get(handles.plot1button, 'String');
+%     %Force MATLAB to redraw the figure
+%     drawnow;
     
     % Read accelerometer output
     [handles.gx handles.gy handles.gz] = readAcc(handles.accelerometer, handles.calCo); %Reads new accelerometer values
@@ -245,28 +247,56 @@ while strcmp(get(handles.plot1button,'String'),'Stop')
     %drawnow; %Forces MATLab to redraw plot
     pause(.01); %Pauses for .01 seconds
     %handles.str = get(handles.plot1button, 'String'); %Contiuously refreshes to continually look for data
-    %drawnow;
+    drawnow;
     
+    
+    % Get the value for the No Filter Radio button
+    % Plot Unfiltered data on axes4
+    if((get(handles.noFiltTrigger,'value'))== 1);
+        
+        axes(handles.axes4)
+        
+        plot(handles.index, handles.gxdata, 'g',...
+        handles.index, handles.gydata, 'r',...
+        handles.index, handles.gzdata, 'b');
+    
+    % Define axis limitations
+    axis([1 handles.buf_len -3.5 3.5]);
+    %Standard plot formatting
+    xlabel('Time');% xlabel
+    ylabel('Magnitude of Individual Axis Acceleration');%ylabel
+    title('Sensor Data Magnitude(Unfiltered');% title
+    grid on; %Turns on grid
+    %drawnow; %Forces MATLab to redraw plot
+    pause(.01); %Pauses for .01 seconds
+    %handles.str = get(handles.plot1button, 'String'); %Contiuously refreshes to continually look for data
+    drawnow;
+    end
+    
+    % Obtain Alpha value from slider
+    handles.alpha = get(handles.sliderControlAlpha,'value');
+    % Set the Text box to the alpha value
+    set(handles.sliderTextAlpha,'String',num2str(handles.alpha));
     % Plotting the Filtered Data
-    
     % Read accelerometer output
-    %[handles.gxFilt handles.gyFilt handles.gzFilt] = readAcc(handles.accelerometer, handles.calCo); %Reads new accelerometer values
-    
+
     % Implementing the filter
-    
     handles.gxFilt = (1-handles.alpha)*handles.gxFilt...
         +handles.alpha*handles.gx;
     handles.gyFilt = (1-handles.alpha)*handles.gyFilt...
         +handles.alpha*handles.gy;
     handles.gzFilt = (1-handles.alpha)*handles.gzFilt...
         +handles.alpha*handles.gz;
-    
-    
     %Replace old data with new data in order to keep rolling plot
     %moving
     handles.gxFiltData = [handles.gxFiltData(2:end) ;handles.gxFilt];
     handles.gyFiltData = [handles.gyFiltData(2:end) ;handles.gyFilt];
     handles.gzFiltData = [handles.gzFiltData(2:end) ;handles.gzFilt];
+     
+    
+    % Get the value for the Alpha Radio button
+    % Plot Aplha Filtered data on axes4
+    if((get(handles.alphaTrigger,'value'))== 1);
     
     axes(handles.axes4)
     plot(handles.indexFilt, handles.gxFiltData, 'g',...
@@ -282,20 +312,53 @@ while strcmp(get(handles.plot1button,'String'),'Stop')
     grid on; %Turns on grid
     drawnow; %Forces MATLab to redraw plot
     pause(.01); %Pauses for .01 seconds
+    end
     
+    
+    % Plotting the Filtered Data 
+    % Implementing the Moving Average Filter filter
+   handles.movWindowSize = str2num(get(handles.movTaps,'String'));
+    
+   handles.gxMov =...
+        mean(handles.gxdata(length(handles.gxdata): -1: (length(handles.gxdata)- handles.movWindowSize -1)));
+    
+   handles.gyMov =...
+        mean(handles.gydata(length(handles.gydata): -1: (length(handles.gydata)- handles.movWindowSize -1)));
+        
+   handles.gzMov =...
+        mean(handles.gzdata(length(handles.gzdata): -1: (length(handles.gzdata)- handles.movWindowSize -1)));
+        
+        
+    %Replace old data with new data in order to keep rolling plot
+    %moving
+    handles.gxMovData = [handles.gxMovData(2:end) ;handles.gxMov];
+    handles.gyMovData = [handles.gyMovData(2:end) ;handles.gyMov];
+    handles.gzMovData = [handles.gzMovData(2:end) ;handles.gzMov];
+    
+    % Get the value for the Moving Average Radio button
+    % Plot Aplha Filtered data on axes4
+   if ((get(handles.movTrigger,'value'))== 1);
+   
+    axes(handles.axes4)
+    plot(handles.indexMov, handles.gxMovData, 'g',...
+        handles.indexMov, handles.gyMovData, 'r',...
+        handles.indexMov, handles.gzMovData, 'b');
+    
+    % Define axis limitations
+    axis([1 handles.buf_len -3.5 3.5]);
+    %Standard plot formatting
+    xlabel('Time');% xlabel
+    ylabel('Magnitude of Filtered Individual Axis Acceleration');%ylabel
+    title('Sensor Data Magnitude (Filtered)');% title
+    grid on; %Turns on grid
+    drawnow; %Forces MATLab to redraw plot
+    pause(.01); %Pauses for .01 seconds
+   
+   end
+   
     
 end
 guidata(hObject, handles); %Updates handles
-
-
-% --- Executes during object creation, after setting all properties.
-function axes3_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to axes3 (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    empty - handles not created until after all CreateFcns called
-axes(hObject)
-imshow('GUIimage.jpg')
-% Hint: place code in OpeningFcn to populate axes3
 
 
 % --- Executes on slider movement.
@@ -317,4 +380,27 @@ function sliderControlAlpha_CreateFcn(hObject, eventdata, handles)
 % Hint: slider controls usually have a light gray background.
 if isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor',[.9 .9 .9]);
+end
+
+
+
+function movTaps_Callback(hObject, eventdata, handles)
+% hObject    handle to movTaps (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of movTaps as text
+%        str2double(get(hObject,'String')) returns contents of movTaps as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function movTaps_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to movTaps (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
 end
