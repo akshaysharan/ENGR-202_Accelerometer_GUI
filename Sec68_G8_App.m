@@ -141,9 +141,7 @@ function plot1button_Callback(hObject, eventdata, handles)
 % Get data from the String variable of the plot1button
 %handles.str = get(handles.plot1button, 'String');
 
-% On Callback the if loop compares the value of the string on the button
-% with 'Stop'. if this is true the method moves on to plotting the data
-% the strcmp function checks whether the String variable of the plot1button
+% The strcmp function checks whether the String variable of the plot1button
 % is 'Plot1', if yes, go head and plot the data, if not set plot1button to
 % 'Stop'
 if strcmp(get(handles.plot1button, 'String'), 'Plot') %if loop changes Plot string to Stop
@@ -152,31 +150,40 @@ else
     set(handles.plot1button,'String','Plot'); %Sets button to Stop
 end
 
-%handles.str = get(handles.plot1button, 'String');
+% Inititalize the variables that will control the input and the output of
+% the program
+
+
 % Set buffer length for the plot
 handles.buf_len = 200;
-%create variables for all the three axis and the resultant vector
+% Create input buffers for all the three axis inputs and an index buffer to
+% store the x-axis index of the accelerometer magnitude data
+
 handles.gxdata = zeros(handles.buf_len,1);
 handles.gydata = zeros(handles.buf_len,1);
 handles.gzdata = zeros(handles.buf_len,1);
 handles.magnitudedata = zeros(handles.buf_len,1);
 handles.index = 1:handles.buf_len;
-% Initialize variables to store the rolling filtered data
+
+% Initialize variables to store Moving Average filtered data
     handles.gxMov = 0;
     handles.gyMov = 0;
     handles.gzMov = 0;
-%Create Buffer Variables for all the three axis and the resultant vector
-%of the Moving Average Filter
+% Create Buffers for Moving Average data variables to store the rolling
+% Moving Average filtered data
+%
 handles.gxMovData = zeros(handles.buf_len,1);
 handles.gyMovData = zeros(handles.buf_len,1);
 handles.gzMovData = zeros(handles.buf_len,1);
 handles.magnitudeMovData = zeros(handles.buf_len,1);
 handles.indexMov = 1:handles.buf_len;
-% Initialize variables to store the rolling filtered data
+% Initialize variables 
     handles.gxFilt = 0;
     handles.gyFilt = 0;
     handles.gzFilt = 0;
-% Create Buffers for Filter data variables
+% Create Buffers for Alpha Filter data variables
+% to store the rolling Alpha filtered data
+%
 handles.gxFiltData = zeros(handles.buf_len,1);
 handles.gyFiltData = zeros(handles.buf_len,1);
 handles.gzFiltData = zeros(handles.buf_len,1);
@@ -187,11 +194,12 @@ handles.indexFilt = 1:handles.buf_len;
 % and alternate string
 % While the string value on the plot1button is 'Stop Plot' run the loop
 % that plots the 2 seperate plots
-
+%
 while strcmp(get(handles.plot1button,'String'),'Stop')
     
     
-    
+%---------- The following code block that has been commented out 
+% plots a 3D vector plot that is redundant for the purpose of this app
 %     %read accelerometer output
 %     [handles.gx handles.gy handles.gz] = readAcc(handles.accelerometer, handles.calCo);
 %     
@@ -223,7 +231,8 @@ while strcmp(get(handles.plot1button,'String'),'Stop')
 %     %Force MATLAB to redraw the figure
 %     drawnow;
     
-    % Read accelerometer output
+%   -----------------Original SENSOR MAGNITUDE DATA Accquisition(REAL TIME)
+    % Read accelerometer output in Real time
     [handles.gx handles.gy handles.gz] = readAcc(handles.accelerometer, handles.calCo); %Reads new accelerometer values
     
     %Replace old data with new data in order to keep rolling plot
@@ -232,14 +241,21 @@ while strcmp(get(handles.plot1button,'String'),'Stop')
     handles.gydata = [handles.gydata(2:end) ;handles.gy];
     handles.gzdata = [handles.gzdata(2:end) ;handles.gz];
     
+    % Set axes value to plot unfiltered data in real time over the
+    % specified buffer length
     axes(handles.axes2)
+    % Plot the buffer index vs the rela time magnitude data for the
+    % accelerometer
     plot(handles.index, handles.gxdata, 'g',...
         handles.index, handles.gydata, 'r',...
         handles.index, handles.gzdata, 'b');
-    
+    % Standard Plot formatting that involves defining axis limits,
+    % labelling the axes adding a title, turning the background grid on
+    % and finally, using the drawnow function
+    %
     % Define axis limitations
     axis([1 handles.buf_len -3.5 3.5]);
-    %Standard plot formatting
+    
     xlabel('Time');% xlabel
     ylabel('Magnitude of Individual Axis Acceleration');%ylabel
     title('Sensor Data Magnitude(Unfiltered');% title
@@ -249,8 +265,9 @@ while strcmp(get(handles.plot1button,'String'),'Stop')
     %handles.str = get(handles.plot1button, 'String'); %Contiuously refreshes to continually look for data
     drawnow;
     
-    
+%   ----------------- PLOTTING FILTERED DATA WITH BUTTON PANEL CONTROL
     % Get the value for the No Filter Radio button
+    % If radio button is pressed,
     % Plot Unfiltered data on axes4
     if((get(handles.noFiltTrigger,'value'))== 1);
         
@@ -259,10 +276,13 @@ while strcmp(get(handles.plot1button,'String'),'Stop')
         plot(handles.index, handles.gxdata, 'g',...
         handles.index, handles.gydata, 'r',...
         handles.index, handles.gzdata, 'b');
-    
+    % Standard Plot formatting that involves defining axis limits,
+    % labelling the axes adding a title, turning the background grid on
+    % and finally, using the drawnow function
+    %
     % Define axis limitations
     axis([1 handles.buf_len -3.5 3.5]);
-    %Standard plot formatting
+    
     xlabel('Time');% xlabel
     ylabel('Magnitude of Individual Axis Acceleration');%ylabel
     title('Sensor Data Magnitude(Unfiltered');% title
@@ -273,28 +293,41 @@ while strcmp(get(handles.plot1button,'String'),'Stop')
     drawnow;
     end
     
-    % Obtain Alpha value from slider
-    handles.alpha = get(handles.sliderControlAlpha,'value');
-    % Set the Text box to the alpha value
-    set(handles.sliderTextAlpha,'String',num2str(handles.alpha));
-    % Plotting the Filtered Data
-    % Read accelerometer output
-
+    
+    %--------------------------Aplpha Filter Implementation:
+    % Step 1: Obtaining Slider Value
+    
+    
+    handles.alpha = get(handles.sliderControlAlpha,'value');% Obtain Alpha value from slider
+    
+    % Step 2: Displaying current alpha value
+    
+    set(handles.sliderTextAlpha,'String',num2str(handles.alpha));% Set the Text box to the alpha value
+    
+    
+    %Step 3: Implementing the Alpha Filter on the orignal data
+    
     % Implementing the filter
+    % Filtering x-axis data
     handles.gxFilt = (1-handles.alpha)*handles.gxFilt...
         +handles.alpha*handles.gx;
+    % Filtering y-axis data
     handles.gyFilt = (1-handles.alpha)*handles.gyFilt...
         +handles.alpha*handles.gy;
+    % Filtering z-axis data
     handles.gzFilt = (1-handles.alpha)*handles.gzFilt...
         +handles.alpha*handles.gz;
-    %Replace old data with new data in order to keep rolling plot
+    
+    % Step 4: Replace old data with new data in order to keep rolling plot
     %moving
     handles.gxFiltData = [handles.gxFiltData(2:end) ;handles.gxFilt];
     handles.gyFiltData = [handles.gyFiltData(2:end) ;handles.gyFilt];
     handles.gzFiltData = [handles.gzFiltData(2:end) ;handles.gzFilt];
      
+    % Step 5: Plot the Filtered Data
     
     % Get the value for the Alpha Radio button
+    % If radio button is pressed,
     % Plot Aplha Filtered data on axes4
     if((get(handles.alphaTrigger,'value'))== 1);
     
@@ -302,10 +335,14 @@ while strcmp(get(handles.plot1button,'String'),'Stop')
     plot(handles.indexFilt, handles.gxFiltData, 'g',...
         handles.indexFilt, handles.gyFiltData, 'r',...
         handles.indexFilt, handles.gzFiltData, 'b');
-    
+    % Standard Plot formatting that involves defining axis limits,
+    % labelling the axes adding a title, turning the background grid on
+    % and finally, using the drawnow function
+    %
     % Define axis limitations
+    
     axis([1 handles.buf_len -3.5 3.5]);
-    %Standard plot formatting
+    
     xlabel('Time');% xlabel
     ylabel('Magnitude of Filtered Individual Axis Acceleration');%ylabel
     title('Sensor Data Magnitude (Filtered)');% title
@@ -315,28 +352,40 @@ while strcmp(get(handles.plot1button,'String'),'Stop')
     end
     
     
-    % Plotting the Filtered Data 
-    % Implementing the Moving Average Filter filter
-   handles.movWindowSize = str2num(get(handles.movTaps,'String'));
+    %------------------Moving Average Filter implementation
+    % Step 1 & 2: Obtaining the user input for number of taps and 
+    % storing the user inputed value as the window size for Moving Average
+    % Calculation purposes 
+    %
+     handles.movWindowSize = str2num(get(handles.movTaps,'String'));
+   
+    % Step 3: Implementing the Moving Average Filter filter
     
+    % Filtering x-axis buffer data
    handles.gxMov =...
         mean(handles.gxdata(length(handles.gxdata): -1: (length(handles.gxdata)- handles.movWindowSize -1)));
-    
+    % Filtering y-axis buffer data
    handles.gyMov =...
         mean(handles.gydata(length(handles.gydata): -1: (length(handles.gydata)- handles.movWindowSize -1)));
-        
+    % Filtering  z-axis buffer data   
    handles.gzMov =...
         mean(handles.gzdata(length(handles.gzdata): -1: (length(handles.gzdata)- handles.movWindowSize -1)));
         
         
-    %Replace old data with new data in order to keep rolling plot
+    %Step 4: Replace old data with new data in order to keep rolling plot
     %moving
+    %
     handles.gxMovData = [handles.gxMovData(2:end) ;handles.gxMov];
     handles.gyMovData = [handles.gyMovData(2:end) ;handles.gyMov];
     handles.gzMovData = [handles.gzMovData(2:end) ;handles.gzMov];
     
+    
+    
+    % Step 5: Plotting the new Filtered Data in real time
+    
     % Get the value for the Moving Average Radio button
-    % Plot Aplha Filtered data on axes4
+    % If radio button is pressed,
+    % Plot Moving Average Filtered data on axes4
    if ((get(handles.movTrigger,'value'))== 1);
    
     axes(handles.axes4)
@@ -344,9 +393,13 @@ while strcmp(get(handles.plot1button,'String'),'Stop')
         handles.indexMov, handles.gyMovData, 'r',...
         handles.indexMov, handles.gzMovData, 'b');
     
+    % Standard Plot formatting that involves defining axis limits,
+    % labelling the axes adding a title, turning the background grid on
+    % and finally, using the drawnow function
+    %
     % Define axis limitations
     axis([1 handles.buf_len -3.5 3.5]);
-    %Standard plot formatting
+    
     xlabel('Time');% xlabel
     ylabel('Magnitude of Filtered Individual Axis Acceleration');%ylabel
     title('Sensor Data Magnitude (Filtered)');% title
